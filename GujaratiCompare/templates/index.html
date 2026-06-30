@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+    <!-- ====================================================
+         Gujarati Paragraph Compare Pro
+         templates/index.html — Main Application Page
+         ====================================================
+         Three-panel Gujarati text comparison interface with
+         file upload, diff highlighting, and report generation.
+         ==================================================== -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Professional offline tool for comparing 3 Gujarati paragraphs simultaneously with word-level diff highlighting, similarity scoring, and report generation.">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Gujarati Paragraph Compare Pro</title>
+
+    <!-- Offline-safe system font stack (no external fonts) -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=1.1">
+</head>
+<body>
+
+    <!-- ================================================
+         App Container
+         ================================================ -->
+    <div class="app-container">
+
+        <!-- ============================================
+             Header
+             ============================================ -->
+        <header class="app-header" id="app-header">
+            <h1>ગુજરાતી ફકરા સરખામણી પ્રો</h1>
+            <p class="subtitle">Gujarati Paragraph Compare Pro — Compare 3 Transcripts Side-by-Side</p>
+        </header>
+
+        <!-- ============================================
+             Control Bar
+             ============================================ -->
+        <div class="control-bar" id="control-bar">
+            <!-- Compare Button -->
+            <button class="btn btn-primary" id="btn-compare" type="button">
+                ⚡ Compare
+            </button>
+
+            <!-- Clear Button -->
+            <button class="btn btn-danger" id="btn-clear" type="button">
+                ✕ Clear
+            </button>
+
+            <!-- Download HTML Report -->
+            <button class="btn btn-success" id="btn-download-html" type="button">
+                📄 HTML Report
+            </button>
+
+            <!-- Download PDF Report -->
+            <button class="btn btn-success" id="btn-download-pdf" type="button">
+                📑 PDF Report
+            </button>
+
+            <!-- Divider -->
+            <span style="width: 1px; height: 28px; background: rgba(255,255,255,0.1);"></span>
+
+            <!-- Mode Selector -->
+            <div class="mode-selector" id="mode-selector">
+                <button class="mode-btn active" id="mode-word" type="button">Word Mode</button>
+                <button class="mode-btn" id="mode-sentence" type="button">Sentence Mode</button>
+            </div>
+
+            <!-- Ignore Case Toggle -->
+            <div class="toggle-group">
+                <input type="checkbox" class="toggle-switch" id="toggle-ignore-case">
+                <label for="toggle-ignore-case">Ignore Case</label>
+            </div>
+
+            <!-- Ignore Spaces Toggle -->
+            <div class="toggle-group">
+                <input type="checkbox" class="toggle-switch" id="toggle-ignore-spaces">
+                <label for="toggle-ignore-spaces">Ignore Spaces</label>
+            </div>
+
+            <!-- Remove Special Characters Toggle -->
+            <div class="toggle-group">
+                <input type="checkbox" class="toggle-switch" id="toggle-remove-special">
+                <label for="toggle-remove-special">Remove Special Chars</label>
+            </div>
+
+            <!-- Flag Script Mismatch Toggle -->
+            <div class="toggle-group">
+                <input type="checkbox" class="toggle-switch" id="toggle-script-mismatch" checked>
+                <label for="toggle-script-mismatch">Flag Script Mismatch</label>
+            </div>
+
+            <!-- Ignore Punctuation Toggle -->
+            <div class="toggle-group">
+                <input type="checkbox" class="toggle-switch" id="toggle-ignore-punctuation">
+                <label for="toggle-ignore-punctuation">Ignore Punctuation (. , ? ! " ')</label>
+            </div>
+        </div>
+
+        <!-- ============================================
+             Editor Grid (3 Input Panels)
+             ============================================ -->
+        <div class="editor-grid" id="editor-grid">
+
+            <!-- Panel A -->
+            <div class="editor-panel" id="panel-a">
+                <div class="panel-header">
+                    <h3>
+                        <span class="panel-label panel-label-a">A</span>
+                        Paragraph A
+                    </h3>
+                    <div class="panel-actions">
+                        <button class="panel-btn" type="button" onclick="document.getElementById('file-input-a').click()">📁 Upload</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <!-- Drop Zone -->
+                    <div class="drop-zone" id="drop-zone-a">
+                        <p class="drop-zone-text">
+                            <strong>Click</strong> or <strong>drag & drop</strong> a .txt file
+                        </p>
+                        <input type="file" class="file-input-hidden" id="file-input-a" accept=".txt">
+                    </div>
+                    <!-- Text Editor -->
+                    <textarea
+                        class="text-editor"
+                        id="editor-a"
+                        placeholder="ગુજરાતી ટેક્સ્ટ અહીં પેસ્ટ કરો અથવા ફાઈલ અપલોડ કરો..."
+                        spellcheck="false"
+                    ></textarea>
+                </div>
+                <div class="panel-footer">
+                    <span id="stats-a">0 words · 0 chars</span>
+                </div>
+            </div>
+
+            <!-- Panel B -->
+            <div class="editor-panel" id="panel-b">
+                <div class="panel-header">
+                    <h3>
+                        <span class="panel-label panel-label-b">B</span>
+                        Paragraph B
+                    </h3>
+                    <div class="panel-actions">
+                        <button class="panel-btn" type="button" onclick="document.getElementById('file-input-b').click()">📁 Upload</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="drop-zone" id="drop-zone-b">
+                        <p class="drop-zone-text">
+                            <strong>Click</strong> or <strong>drag & drop</strong> a .txt file
+                        </p>
+                        <input type="file" class="file-input-hidden" id="file-input-b" accept=".txt">
+                    </div>
+                    <textarea
+                        class="text-editor"
+                        id="editor-b"
+                        placeholder="ગુજરાતી ટેક્સ્ટ અહીં પેસ્ટ કરો અથવા ફાઈલ અપલોડ કરો..."
+                        spellcheck="false"
+                    ></textarea>
+                </div>
+                <div class="panel-footer">
+                    <span id="stats-b">0 words · 0 chars</span>
+                </div>
+            </div>
+
+            <!-- Panel C -->
+            <div class="editor-panel" id="panel-c">
+                <div class="panel-header">
+                    <h3>
+                        <span class="panel-label panel-label-c">C</span>
+                        Paragraph C
+                    </h3>
+                    <div class="panel-actions">
+                        <button class="panel-btn" type="button" onclick="document.getElementById('file-input-c').click()">📁 Upload</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="drop-zone" id="drop-zone-c">
+                        <p class="drop-zone-text">
+                            <strong>Click</strong> or <strong>drag & drop</strong> a .txt file
+                        </p>
+                        <input type="file" class="file-input-hidden" id="file-input-c" accept=".txt">
+                    </div>
+                    <textarea
+                        class="text-editor"
+                        id="editor-c"
+                        placeholder="ગુજરાતી ટેક્સ્ટ અહીં પેસ્ટ કરો અથવા ફાઈલ અપલોડ કરો..."
+                        spellcheck="false"
+                    ></textarea>
+                </div>
+                <div class="panel-footer">
+                    <span id="stats-c">0 words · 0 chars</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ============================================
+             Results Section
+             ============================================ -->
+        <div class="results-section" id="results-section">
+
+            <!-- Legend -->
+            <div class="legend" id="legend">
+                <div class="legend-item">
+                    <span class="legend-color added"></span>
+                    <span>Added Word</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color deleted"></span>
+                    <span>Deleted Word</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color changed"></span>
+                    <span>Changed Word</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color missing"></span>
+                    <span>Missing Word</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color script-mismatch"></span>
+                    <span>Script Mismatch (EN↔GJ)</span>
+                </div>
+            </div>
+
+            <!-- Similarity Cards -->
+            <div class="similarity-grid" id="similarity-grid">
+                <!-- A vs B -->
+                <div class="sim-card" id="sim-card-ab">
+                    <div class="sim-label">A ↔ B</div>
+                    <div class="sim-value" id="sim-ab">—</div>
+                    <div class="sim-bar">
+                        <div class="sim-bar-fill" id="sim-bar-ab" style="width: 0%"></div>
+                    </div>
+                </div>
+                <!-- A vs C -->
+                <div class="sim-card" id="sim-card-ac">
+                    <div class="sim-label">A ↔ C</div>
+                    <div class="sim-value" id="sim-ac">—</div>
+                    <div class="sim-bar">
+                        <div class="sim-bar-fill" id="sim-bar-ac" style="width: 0%"></div>
+                    </div>
+                </div>
+                <!-- B vs C -->
+                <div class="sim-card" id="sim-card-bc">
+                    <div class="sim-label">B ↔ C</div>
+                    <div class="sim-value" id="sim-bc">—</div>
+                    <div class="sim-bar">
+                        <div class="sim-bar-fill" id="sim-bar-bc" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diff Summary -->
+            <div class="diff-summary" id="diff-summary">
+                <div class="summary-card">
+                    <h4>A vs B</h4>
+                    <div class="summary-stats" id="summary-ab"></div>
+                </div>
+                <div class="summary-card">
+                    <h4>A vs C</h4>
+                    <div class="summary-stats" id="summary-ac"></div>
+                </div>
+                <div class="summary-card">
+                    <h4>B vs C</h4>
+                    <div class="summary-stats" id="summary-bc"></div>
+                </div>
+            </div>
+
+            <!-- Result Panels (3 Synchronized) -->
+            <div class="result-panels" id="result-panels">
+                <!-- Panel A Result -->
+                <div class="result-panel">
+                    <div class="result-panel-header">
+                        <h3>
+                            <span class="panel-label panel-label-a">A</span>
+                            Paragraph A
+                        </h3>
+                    </div>
+                    <div class="result-panel-body" id="result-panel-a"></div>
+                </div>
+
+                <!-- Panel B Result -->
+                <div class="result-panel">
+                    <div class="result-panel-header">
+                        <h3>
+                            <span class="panel-label panel-label-b">B</span>
+                            Paragraph B
+                        </h3>
+                    </div>
+                    <div class="result-panel-body" id="result-panel-b"></div>
+                </div>
+
+                <!-- Panel C Result -->
+                <div class="result-panel">
+                    <div class="result-panel-header">
+                        <h3>
+                            <span class="panel-label panel-label-c">C</span>
+                            Paragraph C
+                        </h3>
+                    </div>
+                    <div class="result-panel-body" id="result-panel-c"></div>
+                </div>
+            </div>
+
+        </div>
+        <!-- End Results Section -->
+
+    </div>
+    <!-- End App Container -->
+
+    <!-- ================================================
+         Loading Overlay
+         ================================================ -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Comparing paragraphs...</div>
+    </div>
+
+    <!-- ================================================
+         Toast Notification Container
+         ================================================ -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- ================================================
+         Scripts
+         ================================================ -->
+    <!-- Optional: Use diff-match-patch locally if needed by frontend -->
+    <script src="{{ url_for('static', filename='diff_match_patch.js') }}"></script>
+    <script src="{{ url_for('static', filename='script.js') }}?v=1.1"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# ====================================================
+# Gujarati Paragraph Compare Pro
+# Python Dependencies
+# ====================================================
+# Core web framework
+Flask==3.1.1
+
+# Google's diff-match-patch library for efficient text diffing
+diff-match-patch==20241021
+
+# PDF report generation (pure Python, offline)
+WeasyPrint==63.1
+
+# WSGI server for production (optional, dev uses Flask built-in)
+waitress==3.0.2

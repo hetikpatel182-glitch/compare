@@ -201,6 +201,21 @@ class ComparisonEngine:
                     added_words.append(words_b[k])
 
             elif tag == 'replace':
+                # ── Strict Ignore Spaces check ──
+                # When ignore_extra_spaces is on, if the only difference is
+                # internal spacing (e.g. "મિસ્તાન માં" vs "મિસ્તાનમાં"),
+                # treat ALL words in this block as EQUAL.
+                if self._parser.ignore_extra_spaces:
+                    joined_a = "".join(words_a[i1:i2])
+                    joined_b = "".join(words_b[j1:j2])
+                    if joined_a == joined_b:
+                        for k in range(i1, i2):
+                            left_diffs.append(DiffResult(DiffResult.EQUAL, words_a[k], 'a'))
+                            inline_diffs.append(DiffResult(DiffResult.EQUAL, words_a[k], 'a'))
+                        for k in range(j1, j2):
+                            right_diffs.append(DiffResult(DiffResult.EQUAL, words_b[k], 'b'))
+                        continue
+
                 # Block-level script mismatch check
                 # This makes it much more accurate when word counts differ
                 # (e.g. 1 English word replacing 2 Gujarati words)
@@ -208,17 +223,17 @@ class ComparisonEngine:
                 if flag_script_mismatch:
                     left_text = " ".join(words_a[i1:i2])
                     right_text = " ".join(words_b[j1:j2])
-                    a_has_en = self._parser.contains_english(left_text)
-                    a_has_gu = self._parser.contains_gujarati(left_text)
-                    b_has_en = self._parser.contains_english(right_text)
-                    b_has_gu = self._parser.contains_gujarati(right_text)
+                    a_has_en = self._parser.contains_ascii_letters(left_text)
+                    a_has_other = self._parser.contains_non_ascii(left_text)
+                    b_has_en = self._parser.contains_ascii_letters(right_text)
+                    b_has_other = self._parser.contains_non_ascii(right_text)
 
-                    # Strict block mismatch: One side is exclusively EN (or EN+nums),
-                    # and the other side is exclusively GU (or GU+nums).
-                    is_en_to_gu = a_has_en and not a_has_gu and b_has_gu and not b_has_en
-                    is_gu_to_en = a_has_gu and not a_has_en and b_has_en and not b_has_gu
+                    # Strict block mismatch: One side is exclusively ASCII letters,
+                    # and the other side is exclusively non-ASCII.
+                    is_en_to_other = a_has_en and not a_has_other and b_has_other and not b_has_en
+                    is_other_to_en = a_has_other and not a_has_en and b_has_en and not b_has_other
 
-                    if is_en_to_gu or is_gu_to_en:
+                    if is_en_to_other or is_other_to_en:
                         is_block_mismatch = True
 
                 # For the Wrong Words list, we consider the entire replaced phrase block
@@ -272,16 +287,16 @@ class ComparisonEngine:
                             if flag_script_mismatch:
                                 # Don't flag if it's just a misaligned common word
                                 if old_word not in words_b[j1:j2] and new_word not in words_a[i1:i2]:
-                                    a_is_en = self._parser.contains_english(old_word)
-                                    a_is_gu = self._parser.contains_gujarati(old_word)
-                                    b_is_en = self._parser.contains_english(new_word)
-                                    b_is_gu = self._parser.contains_gujarati(new_word)
+                                    a_is_en = self._parser.contains_ascii_letters(old_word)
+                                    a_is_other = self._parser.contains_non_ascii(old_word)
+                                    b_is_en = self._parser.contains_ascii_letters(new_word)
+                                    b_is_other = self._parser.contains_non_ascii(new_word)
                                     
                                     # Strict check
-                                    is_en_to_gu = a_is_en and not a_is_gu and b_is_gu and not b_is_en
-                                    is_gu_to_en = a_is_gu and not a_is_en and b_is_en and not b_is_gu
+                                    is_en_to_other = a_is_en and not a_is_other and b_is_other and not b_is_en
+                                    is_other_to_en = a_is_other and not a_is_en and b_is_en and not b_is_other
                                     
-                                    if is_en_to_gu or is_gu_to_en:
+                                    if is_en_to_other or is_other_to_en:
                                         is_word_mismatch = True
 
                             if is_word_mismatch:
@@ -357,9 +372,19 @@ class ComparisonEngine:
         set_b = set(words_b)
         missing_words = sorted(set_a - set_b)
 
+        # When ignore_extra_spaces is on, a word like "માં" might exist in B
+        # as part of a merged token "મિસ્તાનમાં". Filter out such false misses.
+        if self._parser.ignore_extra_spaces and missing_words:
+            joined_b = ''.join(words_b)
+            joined_a = ''.join(words_a)
+            missing_words = [
+                w for w in missing_words
+                if w not in joined_b
+            ]
+
         # Post-process to ignore common punctuation if requested
         if flag_ignore_punctuation:
-            punct_set = {'.', ',', '?', '!', '।', '"', "'", '“', '”', '‘', '’'}
+            punct_set = {'.', ',', '?', '!', '।', '"', "'", '“', '”', '‘', '’', '؟', '。', '،', '；', '：'}
             
             # Convert ADDED, DELETED, SCRIPT_MISMATCH to EQUAL for these puncts
             for diff_list in [left_diffs, right_diffs, inline_diffs]:
@@ -385,6 +410,16 @@ class ComparisonEngine:
 
             # Remove from missing words
             missing_words = [w for w in missing_words if w not in punct_set]
+
+        # ── Strict Ignore Spaces: post-process changed_words list ──
+        # Filter out any changed_words pairs that are space-only differences.
+        # (The replace handler skips them for diffs, but we also need to clean
+        #  the changed_words list for the Wrong Words UI.)
+        if self._parser.ignore_extra_spaces:
+            changed_words = [
+                (old_p, new_p) for old_p, new_p in changed_words
+                if old_p.replace(' ', '') != new_p.replace(' ', '')
+            ]
 
         diff_result = PairwiseDiff(
             label='',

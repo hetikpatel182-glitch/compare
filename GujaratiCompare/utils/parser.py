@@ -29,33 +29,29 @@ class TextParser:
     # Compiled Regex Patterns (class-level, compiled once)
     # ------------------------------------------------
 
-    # Gujarati sentence-ending punctuation + standard punctuation
+    # Universal sentence-ending punctuation
     SENTENCE_SPLIT_PATTERN = re.compile(
-        r'(?<=[।॥.!?])\s+'
+        r'(?<=[।॥.!?؟。،；：])\s+'
     )
 
-    # Word-level tokenizer: captures sequences of
-    #   Gujarati chars + combining marks  OR
-    #   ASCII word chars                  OR
-    #   individual punctuation marks
-    # This ensures punctuation is a separate token so it doesn't
-    # pollute word equality checks.
+    # Define common punctuation marks globally across languages
+    PUNCT_STR = r'\.,\?!\;:\"\'\(\)\[\]\{\}\<\>।॥؟。،；：'
+
+    # Word-level tokenizer: captures sequences of word characters or individual punctuation marks
     WORD_TOKEN_PATTERN = re.compile(
-        r'[\u0A80-\u0AFF\u0964\u0965A-Za-z0-9_]+(?:-[\u0A80-\u0AFF\u0964\u0965A-Za-z0-9_]+)*'
-        r'|[^\s]',                          # any other single non-space char
+        rf'[^{PUNCT_STR}\s]+(?:-[^{PUNCT_STR}\s]+)*|[^\s]',
         re.UNICODE,
     )
 
-    # Gujarati Unicode character detector
-    GUJARATI_CHAR_PATTERN = re.compile(r'[\u0A80-\u0AFF]')
+    # Non-ASCII character detector (useful for detecting script mismatch vs English)
+    NON_ASCII_CHAR_PATTERN = re.compile(r'[^\x00-\x7F]')
 
-    # English (Latin) character detector
-    ENGLISH_CHAR_PATTERN = re.compile(r'[a-zA-Z]')
+    # ASCII letter detector
+    ASCII_LETTER_PATTERN = re.compile(r'[a-zA-Z]')
 
-    # Special characters to strip (keeps Gujarati, Devanagari dandas,
-    # word chars, and whitespace)
+    # Special characters to strip (keeps word characters and whitespace)
     SPECIAL_CHARS_PATTERN = re.compile(
-        r'[^\u0A80-\u0AFF\u0964-\u0965\w\s]',
+        rf'[{PUNCT_STR}]',
         re.UNICODE,
     )
 
@@ -257,19 +253,19 @@ class TextParser:
     # Utility Methods
     # ------------------------------------------------
 
-    def contains_gujarati(self, text: str) -> bool:
-        """Check if text contains Gujarati Unicode characters."""
-        return bool(self.GUJARATI_CHAR_PATTERN.search(text))
+    def contains_non_ascii(self, text: str) -> bool:
+        """Check if text contains non-ASCII characters."""
+        return bool(self.NON_ASCII_CHAR_PATTERN.search(text))
 
-    def contains_english(self, text: str) -> bool:
-        """Check if text contains English (Latin) characters."""
-        return bool(self.ENGLISH_CHAR_PATTERN.search(text))
+    def contains_ascii_letters(self, text: str) -> bool:
+        """Check if text contains ASCII (English) letter characters."""
+        return bool(self.ASCII_LETTER_PATTERN.search(text))
 
     def word_count(self, text: str) -> int:
         """Count words (excludes standalone punctuation tokens)."""
         tokens = self.tokenize_words(text)
         # Only count tokens that contain actual word characters
-        return sum(1 for t in tokens if re.search(r'[\w\u0A80-\u0AFF]', t))
+        return sum(1 for t in tokens if re.search(r'\w', t, re.UNICODE))
 
     def sentence_count(self, text: str) -> int:
         """Count sentences."""
@@ -287,7 +283,7 @@ class TextParser:
             'char_count': len(normalized),
             'word_count': self.word_count(text),
             'sentence_count': self.sentence_count(text),
-            'has_gujarati': self.contains_gujarati(text),
+            'has_non_ascii': self.contains_non_ascii(text),
         }
 
     def __repr__(self) -> str:

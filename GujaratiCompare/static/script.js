@@ -1,6 +1,6 @@
 /**
  * ====================================================
- * Gujarati Paragraph Compare Pro
+ * Indian Languages Paragraph Compare Pro
  * static/script.js — Frontend Application Logic
  * ====================================================
  * Handles:
@@ -27,11 +27,14 @@
      */
     const AppState = {
         mode: 'word',            // 'word' or 'sentence'
+        panelCount: 3,           // 2 or 3
         ignoreCase: false,
         ignoreExtraSpaces: false,
         removeSpecialChars: false,
-        flagScriptMismatch: true,  // flag English↔Gujarati word mismatches
+        flagScriptMismatch: true,  // flag English↔Other word mismatches
         ignorePunctuation: false,  // ignore . , ? !
+        textKeysOnly: false,     // compare only "Text" key values from JSON
+        jsonView: false,         // show comparison results in JSON format
         comparisonResult: null,  // Last comparison response from API
         isComparing: false,      // Whether a comparison is in progress
     };
@@ -73,10 +76,18 @@
         toggleRemoveSpecial: document.getElementById('toggle-remove-special'),
         toggleScriptMismatch: document.getElementById('toggle-script-mismatch'),
         toggleIgnorePunctuation: document.getElementById('toggle-ignore-punctuation'),
+        toggleTextKeysOnly: document.getElementById('toggle-text-keys-only'),
+        toggleJsonView: document.getElementById('toggle-json-view'),
 
         // Mode buttons
         modeWord: document.getElementById('mode-word'),
         modeSentence: document.getElementById('mode-sentence'),
+
+        // Panel Count buttons
+        btn3Panels: document.getElementById('btn-3-panels'),
+        btn2Panels: document.getElementById('btn-2-panels'),
+        panelC: document.getElementById('panel-c'),
+        editorGrid: document.getElementById('editor-grid'),
 
         // Result panels
         resultPanelA: document.getElementById('result-panel-a'),
@@ -150,6 +161,17 @@
         DOM.toggleIgnorePunctuation.addEventListener('change', function () {
             AppState.ignorePunctuation = this.checked;
         });
+        DOM.toggleTextKeysOnly.addEventListener('change', function () {
+            AppState.textKeysOnly = this.checked;
+        });
+        DOM.toggleJsonView.addEventListener('change', function () {
+            AppState.jsonView = this.checked;
+            // JSON View implies Text Keys Only for comparison
+            if (this.checked && !AppState.textKeysOnly) {
+                AppState.textKeysOnly = true;
+                DOM.toggleTextKeysOnly.checked = true;
+            }
+        });
 
         // Mode selector buttons
         DOM.modeWord.addEventListener('click', function () {
@@ -157,6 +179,14 @@
         });
         DOM.modeSentence.addEventListener('click', function () {
             setMode('sentence');
+        });
+
+        // Panel Count selector buttons
+        DOM.btn3Panels.addEventListener('click', function () {
+            setPanelCount(3);
+        });
+        DOM.btn2Panels.addEventListener('click', function () {
+            setPanelCount(2);
         });
 
         // Text editor input events (for live stats)
@@ -193,6 +223,25 @@
         // Update UI
         DOM.modeWord.classList.toggle('active', mode === 'word');
         DOM.modeSentence.classList.toggle('active', mode === 'sentence');
+    }
+
+    /**
+     * Set the number of comparison panels (2 or 3).
+     * @param {number} count - 2 or 3.
+     */
+    function setPanelCount(count) {
+        AppState.panelCount = count;
+
+        DOM.btn3Panels.classList.toggle('active', count === 3);
+        DOM.btn2Panels.classList.toggle('active', count === 2);
+
+        if (count === 2) {
+            DOM.panelC.classList.add('hidden-panel');
+            DOM.editorGrid.style.gridTemplateColumns = window.innerWidth > 768 ? 'repeat(2, 1fr)' : '1fr';
+        } else {
+            DOM.panelC.classList.remove('hidden-panel');
+            DOM.editorGrid.style.gridTemplateColumns = '';
+        }
     }
 
     // ================================================
@@ -252,8 +301,9 @@
      */
     async function uploadFile(file, editor, panelId) {
         // Validate file type
-        if (!file.name.toLowerCase().endsWith('.txt')) {
-            showToast('Only .txt files are allowed.', 'error');
+        const fileName = file.name.toLowerCase();
+        if (!fileName.endsWith('.txt') && !fileName.endsWith('.json')) {
+            showToast('Only .txt and .json files are allowed.', 'error');
             return;
         }
 
@@ -298,10 +348,65 @@
      * Handle the Compare button click.
      * Sends texts to the backend for 3-way comparison.
      */
+    /**
+     * Extract only the "Text" field values from JSON-structured input.
+     * Handles both JSON arrays and newline-delimited JSON objects.
+     * If parsing fails, returns the original text unchanged.
+     * @param {string} rawText - The raw text from the editor.
+     * @returns {string} Extracted text values joined by newlines, or original text.
+     */
+    function extractTextKeysOnly(rawText) {
+        if (!rawText || !rawText.trim()) return rawText;
+
+        try {
+            // Try parsing as a JSON array or single object
+            const parsed = JSON.parse(rawText);
+            const items = Array.isArray(parsed) ? parsed : [parsed];
+            const textValues = [];
+            items.forEach(function (item) {
+                if (item && typeof item === 'object' && typeof item.Text === 'string') {
+                    textValues.push(item.Text);
+                }
+            });
+            if (textValues.length > 0) {
+                return textValues.join(' ');
+            }
+        } catch (e) {
+            // Not valid JSON — try line-by-line extraction with regex
+        }
+
+        // Fallback: regex extraction for "Text": "..." patterns
+        var regex = /"Text"\s*:\s*"((?:[^"\\]|\\.)*)?"/g;
+        var matches = [];
+        var match;
+        while ((match = regex.exec(rawText)) !== null) {
+            // Unescape JSON string escapes
+            var val = match[1] || '';
+            try {
+                val = JSON.parse('"' + val + '"');
+            } catch (e) { /* use as-is */ }
+            matches.push(val);
+        }
+
+        if (matches.length > 0) {
+            return matches.join(' ');
+        }
+
+        // No "Text" keys found — return original
+        return rawText;
+    }
+
     async function handleCompare() {
-        const textA = DOM.editorA.value.trim();
-        const textB = DOM.editorB.value.trim();
-        const textC = DOM.editorC.value.trim();
+        let textA = DOM.editorA.value.trim();
+        let textB = DOM.editorB.value.trim();
+        let textC = AppState.panelCount === 3 ? DOM.editorC.value.trim() : "";
+
+        // If "Text Keys Only" is enabled, extract only Text field values
+        if (AppState.textKeysOnly) {
+            textA = extractTextKeysOnly(textA);
+            textB = extractTextKeysOnly(textB);
+            textC = extractTextKeysOnly(textC);
+        }
 
         // Validate: need at least 2 paragraphs
         const filled = [textA, textB, textC].filter(t => t.length > 0).length;
@@ -330,6 +435,7 @@
                     remove_special_chars: AppState.removeSpecialChars,
                     flag_script_mismatch: AppState.flagScriptMismatch,
                     flag_ignore_punctuation: AppState.ignorePunctuation,
+                    language: document.getElementById('language-select').value,
                 }),
             });
 
@@ -369,11 +475,245 @@
         // Render diff summaries
         renderDiffSummary(data.comparison);
 
-        // Render diff view panels
-        renderPanels(data.comparison);
+        // Render diff view panels (JSON view or standard)
+        if (AppState.jsonView) {
+            renderJsonViewPanels(data.comparison);
+        } else {
+            renderPanels(data.comparison);
+        }
 
         // Scroll to results
         DOM.resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ================================================
+    // JSON View Rendering
+    // ================================================
+
+    /**
+     * Parse transcript JSON from raw editor text.
+     * Returns an array of objects, or null if parsing fails.
+     * @param {string} rawText - The raw editor content.
+     * @returns {Array|null} Parsed array of JSON objects.
+     */
+    function parseTranscriptJson(rawText) {
+        if (!rawText || !rawText.trim()) return null;
+
+        // Try parsing as valid JSON array/object
+        try {
+            const parsed = JSON.parse(rawText);
+            const items = Array.isArray(parsed) ? parsed : [parsed];
+            // Validate at least one item has a "Text" key
+            if (items.some(function(item) { return item && typeof item === 'object' && 'Text' in item; })) {
+                return items;
+            }
+        } catch (e) {
+            // Not valid JSON — try extracting objects via regex
+        }
+
+        // Fallback: extract JSON-like objects from text using regex
+        // Matches { ... } blocks that contain "Text":
+        try {
+            var objectPattern = /\{[^{}]*"Text"\s*:[^{}]*\}/g;
+            var matches = rawText.match(objectPattern);
+            if (matches && matches.length > 0) {
+                var items = [];
+                for (var i = 0; i < matches.length; i++) {
+                    try {
+                        items.push(JSON.parse(matches[i]));
+                    } catch (e) {
+                        // Try to fix common issues (trailing commas, etc)
+                        var fixed = matches[i].replace(/,\s*}/g, '}');
+                        try { items.push(JSON.parse(fixed)); } catch (e2) { /* skip */ }
+                    }
+                }
+                if (items.length > 0) return items;
+            }
+        } catch (e) { /* fallback failed */ }
+
+        return null;
+    }
+
+    /**
+     * Render comparison results in JSON view format.
+     * Parses JSON from both editors, aligns entries by index,
+     * and shows per-entry cards with Text field diff highlighting.
+     * @param {Object} comparison - The comparison object from API.
+     */
+    function renderJsonViewPanels(comparison) {
+        const rawA = DOM.editorA.value.trim();
+        const rawB = DOM.editorB.value.trim();
+
+        const jsonA = parseTranscriptJson(rawA);
+        const jsonB = parseTranscriptJson(rawB);
+
+        if (!jsonA && !jsonB) {
+            // Fallback to normal rendering if both fail
+            showToast('Could not parse JSON from editors. Showing standard view.', 'error');
+            renderPanels(comparison);
+            return;
+        }
+
+        const entriesA = jsonA || [];
+        const entriesB = jsonB || [];
+        const maxLen = Math.max(entriesA.length, entriesB.length);
+
+        // Create DMP instance for per-entry word-level diff
+        var dmp = new diff_match_patch();
+
+        var html = '<div class="json-entries-container">';
+
+        for (var i = 0; i < maxLen; i++) {
+            var entryA = i < entriesA.length ? entriesA[i] : null;
+            var entryB = i < entriesB.length ? entriesB[i] : null;
+
+            var textA = entryA && typeof entryA.Text === 'string' ? entryA.Text : '';
+            var textB = entryB && typeof entryB.Text === 'string' ? entryB.Text : '';
+
+            // Determine entry status
+            var status = 'equal';
+            if (!entryA) {
+                status = 'added';
+            } else if (!entryB) {
+                status = 'deleted';
+            } else if (textA !== textB) {
+                status = 'changed';
+            }
+
+            html += '<div class="json-entry-card entry-' + status + '">';
+
+            // Header
+            html += '<div class="json-entry-header">';
+            html += '<span class="json-entry-index">Entry #' + (i + 1) + '</span>';
+            var statusLabel = status === 'equal' ? '✓ Match' :
+                              status === 'changed' ? '~ Changed' :
+                              status === 'added' ? '+ Only in B' : '− Only in A';
+            html += '<span class="json-entry-status status-' + status + '">' + statusLabel + '</span>';
+            html += '</div>';
+
+            // Body
+            html += '<div class="json-entry-body">';
+
+            // Show shared metadata fields from whichever entry exists
+            var refEntry = entryA || entryB;
+            var allKeys = Object.keys(refEntry);
+            for (var k = 0; k < allKeys.length; k++) {
+                var key = allKeys[k];
+                if (key === 'Text') continue; // Handle Text separately
+
+                var valA = entryA ? entryA[key] : undefined;
+                var valB = entryB ? entryB[key] : undefined;
+                var displayVal = valA !== undefined ? valA : valB;
+
+                html += '<div class="json-field">';
+                html += '<span class="json-key">"' + escapeHtml(key) + '":</span>';
+                html += '<span class="json-value-string">"' + escapeHtml(String(displayVal)) + '"</span>';
+                html += '</div>';
+            }
+
+            // Text field with diff highlighting
+            html += '<div class="json-field">';
+            html += '<span class="json-key">"Text":</span>';
+            html += '</div>';
+
+            if (status === 'equal') {
+                html += '<div class="json-text-diff-container">';
+                html += '<div class="json-text-diff-content">' + escapeHtml(textA) + '</div>';
+                html += '</div>';
+            } else if (status === 'added') {
+                html += '<div class="json-text-diff-container">';
+                html += '<div class="json-text-diff-label label-b">⬤ Transcript B</div>';
+                html += '<div class="json-text-diff-content"><span class="diff-added">' + escapeHtml(textB) + '</span></div>';
+                html += '</div>';
+            } else if (status === 'deleted') {
+                html += '<div class="json-text-diff-container">';
+                html += '<div class="json-text-diff-label label-a">⬤ Transcript A</div>';
+                html += '<div class="json-text-diff-content"><span class="diff-deleted">' + escapeHtml(textA) + '</span></div>';
+                html += '</div>';
+            } else {
+                // Changed — show side-by-side with word-level diff
+                var diffResult = computeWordDiff(dmp, textA, textB);
+
+                html += '<div class="json-text-side-by-side">';
+                // Side A
+                html += '<div class="json-text-diff-container">';
+                html += '<div class="json-text-diff-label label-a">⬤ Transcript A</div>';
+                html += '<div class="json-text-diff-content">' + diffResult.htmlA + '</div>';
+                html += '</div>';
+                // Side B
+                html += '<div class="json-text-diff-container">';
+                html += '<div class="json-text-diff-label label-b">⬤ Transcript B</div>';
+                html += '<div class="json-text-diff-content">' + diffResult.htmlB + '</div>';
+                html += '</div>';
+                html += '</div>';
+            }
+
+            html += '</div>'; // .json-entry-body
+            html += '</div>'; // .json-entry-card
+        }
+
+        html += '</div>'; // .json-entries-container
+
+        // Display in result panel A as a single merged view
+        const resultPanelsContainer = document.querySelector('.result-panels');
+        const summaryCardsContainer = document.querySelector('.diff-summary');
+
+        const panelA = DOM.resultPanelA.closest('.result-panel');
+        panelA.style.display = 'block';
+        const headerA = panelA.querySelector('.result-panel-header');
+        headerA.innerHTML = '<div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">' +
+            '<h3 style="margin: 0;">📋 JSON Comparison View</h3>' +
+            '<button class="btn btn-secondary btn-sm" onclick="downloadMergedViewPdf()" style="padding: 4px 8px; font-size: 0.85rem;">⬇ Download PDF</button>' +
+            '</div>';
+        DOM.resultPanelA.innerHTML = html;
+
+        DOM.resultPanelB.closest('.result-panel').style.display = 'none';
+        DOM.resultPanelB.innerHTML = '';
+        DOM.resultPanelC.closest('.result-panel').style.display = 'none';
+        DOM.resultPanelC.innerHTML = '';
+
+        resultPanelsContainer.style.gridTemplateColumns = '1fr';
+        summaryCardsContainer.style.gridTemplateColumns = '1fr';
+    }
+
+    /**
+     * Compute word-level diff between two text strings.
+     * Returns HTML for both sides with diff highlighting.
+     * @param {diff_match_patch} dmp - DMP instance.
+     * @param {string} textA - Text from transcript A.
+     * @param {string} textB - Text from transcript B.
+     * @returns {{ htmlA: string, htmlB: string }} Highlighted HTML for each side.
+     */
+    function computeWordDiff(dmp, textA, textB) {
+        var wordsA = textA.split(/\s+/).filter(function(w) { return w.length > 0; });
+        var wordsB = textB.split(/\s+/).filter(function(w) { return w.length > 0; });
+
+        // Use DMP for character-level diff, then map back to words
+        var diffs = dmp.diff_main(textA, textB);
+        dmp.diff_cleanupSemantic(diffs);
+
+        var htmlA = '';
+        var htmlB = '';
+
+        for (var i = 0; i < diffs.length; i++) {
+            var op = diffs[i][0];
+            var text = diffs[i][1];
+            var escaped = escapeHtml(text);
+
+            if (op === 0) {
+                // Equal
+                htmlA += '<span>' + escaped + '</span>';
+                htmlB += '<span>' + escaped + '</span>';
+            } else if (op === -1) {
+                // Deleted from A
+                htmlA += '<span class="diff-deleted">' + escaped + '</span>';
+            } else if (op === 1) {
+                // Added in B
+                htmlB += '<span class="diff-added">' + escaped + '</span>';
+            }
+        }
+
+        return { htmlA: htmlA, htmlB: htmlB };
     }
 
     /**
@@ -505,7 +845,7 @@
                 <title>Wrong Words Report</title>
                 <style>
                     body { 
-                        font-family: 'Noto Sans Gujarati', sans-serif, Arial; 
+                        font-family: sans-serif, Arial; 
                         padding: 40px; 
                         color: #000; 
                         -webkit-print-color-adjust: exact; 
@@ -560,7 +900,7 @@
                 <title>Merged Transcript Report</title>
                 <style>
                     body { 
-                        font-family: 'Noto Sans Gujarati', sans-serif, Arial; 
+                        font-family: sans-serif, Arial; 
                         padding: 40px; 
                         color: #000; 
                         line-height: 1.8; 
@@ -827,12 +1167,13 @@
                         b: DOM.editorB.value,
                         c: DOM.editorC.value,
                     },
+                    language: document.getElementById('language-select').value,
                 }),
             });
 
             if (response.ok) {
                 const blob = await response.blob();
-                downloadBlob(blob, 'gujarati_compare_report.html');
+                downloadBlob(blob, 'indian_compare_report.html');
                 showToast('HTML report downloaded.', 'success');
             } else {
                 const data = await response.json();
@@ -871,12 +1212,13 @@
                         b: DOM.editorB.value,
                         c: DOM.editorC.value,
                     },
+                    language: document.getElementById('language-select').value,
                 }),
             });
 
             if (response.ok) {
                 const blob = await response.blob();
-                downloadBlob(blob, 'gujarati_compare_report.pdf');
+                downloadBlob(blob, 'indian_compare_report.pdf');
                 showToast('PDF report downloaded.', 'success');
             } else {
                 const data = await response.json();

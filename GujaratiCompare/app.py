@@ -1,5 +1,5 @@
 # ====================================================
-# Gujarati Paragraph Compare Pro
+# Indian Languages Paragraph Compare Pro
 # app.py — Flask Backend Application
 # ====================================================
 # Main Flask application with routes for:
@@ -42,7 +42,7 @@ app.config['UPLOAD_FOLDER'] = os.path.join(
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Allowed file extensions
-ALLOWED_EXTENSIONS = {'txt'}
+ALLOWED_EXTENSIONS = {'txt', 'json'}
 
 
 def allowed_file(filename: str) -> bool:
@@ -76,7 +76,7 @@ def upload_file():
             "success": true,
             "content": "<file text content>",
             "filename": "<original filename>",
-            "stats": { char_count, word_count, sentence_count, has_gujarati }
+            "stats": { char_count, word_count, sentence_count, has_non_ascii }
         }
     """
     # Validate file presence
@@ -91,7 +91,7 @@ def upload_file():
     if not allowed_file(file.filename):
         return jsonify({
             'success': False,
-            'error': 'Only .txt files are allowed.'
+            'error': 'Only .txt and .json files are allowed.'
         }), 400
 
     try:
@@ -268,7 +268,7 @@ def report_html():
         return send_file(
             report_path,
             as_attachment=True,
-            download_name='gujarati_compare_report.html',
+            download_name='indian_compare_report.html',
             mimetype='text/html',
         )
 
@@ -298,6 +298,7 @@ def report_pdf():
         stats_data = data.get('stats_data', {})
         timestamp = data.get('timestamp', datetime.datetime.now().isoformat())
         texts = data.get('texts', {})
+        language = data.get('language', 'Hindi')
 
         # Generate HTML report first
         html_content = _generate_html_report(
@@ -317,7 +318,7 @@ def report_pdf():
             return send_file(
                 pdf_path,
                 as_attachment=True,
-                download_name='gujarati_compare_report.pdf',
+                download_name='indian_compare_report.pdf',
                 mimetype='application/pdf',
             )
 
@@ -424,12 +425,13 @@ def _generate_html_report(
         return html
 
     # Build the full report HTML
+    language = data.get('language', 'Hindi')
     report_html = f"""<!DOCTYPE html>
-<html lang="gu">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gujarati Compare Pro — Report</title>
+    <title>Indian Languages Compare Pro — Report</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{
@@ -564,8 +566,8 @@ def _generate_html_report(
 </head>
 <body>
     <div class="report-header">
-        <h1>Gujarati Paragraph Compare Pro</h1>
-        <div class="timestamp">Report generated: {esc(timestamp)}</div>
+        <h1>Indian Languages Paragraph Compare Pro</h1>
+        <div class="timestamp">Language: {esc(language)} &nbsp;|&nbsp; Report generated: {esc(timestamp)}</div>
     </div>
 
     <div class="section">
@@ -644,7 +646,7 @@ def _generate_html_report(
 
 if __name__ == '__main__':
     print("=" * 52)
-    print("  Gujarati Paragraph Compare Pro")
-    print("  Running at: http://127.0.0.1:5000")
+    print("  Indian Languages Paragraph Compare Pro")
+    print("  Running at: http://0.0.0.0:5000")
     print("=" * 52)
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)

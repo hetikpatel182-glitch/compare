@@ -1,18 +1,18 @@
 <!DOCTYPE html>
-<html lang="gu">
+<html lang="en">
 <head>
     <!-- ====================================================
-         Gujarati Paragraph Compare Pro
+         Indian Languages Paragraph Compare Pro
          templates/index.html — Main Application Page
          ====================================================
-         Three-panel Gujarati text comparison interface with
+         Three-panel universal text comparison interface with
          file upload, diff highlighting, and report generation.
          ==================================================== -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Professional offline tool for comparing 3 Gujarati paragraphs simultaneously with word-level diff highlighting, similarity scoring, and report generation.">
+    <meta name="description" content="Professional offline tool for comparing 3 paragraphs simultaneously with word-level diff highlighting, similarity scoring, and report generation.">
     <meta name="robots" content="noindex, nofollow">
-    <title>Gujarati Paragraph Compare Pro</title>
+    <title>Indian Languages Paragraph Compare Pro</title>
 
     <!-- Offline-safe system font stack (no external fonts) -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=1.1">
@@ -28,8 +28,8 @@
              Header
              ============================================ -->
         <header class="app-header" id="app-header">
-            <h1>ગુજરાતી ફકરા સરખામણી પ્રો</h1>
-            <p class="subtitle">Gujarati Paragraph Compare Pro — Compare 3 Transcripts Side-by-Side</p>
+            <h1>Indian Languages Paragraph Compare Pro</h1>
+            <p class="subtitle">Indian Languages Paragraph Compare Pro — Compare 3 Transcripts Side-by-Side</p>
         </header>
 
         <!-- ============================================
@@ -58,6 +58,35 @@
 
             <!-- Divider -->
             <span style="width: 1px; height: 28px; background: rgba(255,255,255,0.1);"></span>
+
+            <!-- Language Selector -->
+            <div class="toggle-group" style="flex-direction: row; align-items: center; gap: 8px;">
+                <label for="language-select" style="font-size: 13px; color: var(--text-secondary);">Language:</label>
+                <select id="language-select" class="form-select">
+                    <option value="Hindi" selected>Hindi (हिन्दी)</option>
+                    <option value="Gujarati">Gujarati (ગુજરાતી)</option>
+                    <option value="Marathi">Marathi (मराठी)</option>
+                    <option value="Bengali">Bengali (বাংলা)</option>
+                    <option value="Tamil">Tamil (தமிழ்)</option>
+                    <option value="Telugu">Telugu (తెలుగు)</option>
+                    <option value="Kannada">Kannada (ಕನ್ನಡ)</option>
+                    <option value="Malayalam">Malayalam (മലയാളം)</option>
+                    <option value="Punjabi">Punjabi (ਪੰਜਾਬੀ)</option>
+                    <option value="Odia">Odia (ଓଡ଼ିଆ)</option>
+                    <option value="Urdu">Urdu (اردو)</option>
+                    <option value="Assamese">Assamese (অসমীয়া)</option>
+                    <option value="Sanskrit">Sanskrit (संस्कृतम्)</option>
+                </select>
+            </div>
+
+            <!-- Divider -->
+            <span style="width: 1px; height: 28px; background: rgba(255,255,255,0.1);"></span>
+
+            <!-- Panel Count Selector -->
+            <div class="mode-selector" id="panel-count-selector">
+                <button class="mode-btn active" id="btn-3-panels" type="button">3 Transcripts</button>
+                <button class="mode-btn" id="btn-2-panels" type="button">2 Transcripts</button>
+            </div>
 
             <!-- Mode Selector -->
             <div class="mode-selector" id="mode-selector">
@@ -94,6 +123,18 @@
                 <input type="checkbox" class="toggle-switch" id="toggle-ignore-punctuation">
                 <label for="toggle-ignore-punctuation">Ignore Punctuation (. , ? ! " ')</label>
             </div>
+
+            <!-- Text Keys Only Toggle -->
+            <div class="toggle-group">
+                <input type="checkbox" class="toggle-switch" id="toggle-text-keys-only">
+                <label for="toggle-text-keys-only">Compare Text Keys Only</label>
+            </div>
+
+            <!-- JSON View Toggle -->
+            <div class="toggle-group">
+                <input type="checkbox" class="toggle-switch" id="toggle-json-view">
+                <label for="toggle-json-view">JSON View</label>
+            </div>
         </div>
 
         <!-- ============================================
@@ -116,15 +157,15 @@
                     <!-- Drop Zone -->
                     <div class="drop-zone" id="drop-zone-a">
                         <p class="drop-zone-text">
-                            <strong>Click</strong> or <strong>drag & drop</strong> a .txt file
+                            <strong>Click</strong> or <strong>drag & drop</strong> a .txt or .json file
                         </p>
-                        <input type="file" class="file-input-hidden" id="file-input-a" accept=".txt">
+                        <input type="file" class="file-input-hidden" id="file-input-a" accept=".txt,.json">
                     </div>
                     <!-- Text Editor -->
                     <textarea
                         class="text-editor"
                         id="editor-a"
-                        placeholder="ગુજરાતી ટેક્સ્ટ અહીં પેસ્ટ કરો અથવા ફાઈલ અપલોડ કરો..."
+                        placeholder="Paste text here or upload file..."
                         spellcheck="false"
                     ></textarea>
                 </div>
@@ -147,14 +188,14 @@
                 <div class="panel-body">
                     <div class="drop-zone" id="drop-zone-b">
                         <p class="drop-zone-text">
-                            <strong>Click</strong> or <strong>drag & drop</strong> a .txt file
+                            <strong>Click</strong> or <strong>drag & drop</strong> a .txt or .json file
                         </p>
-                        <input type="file" class="file-input-hidden" id="file-input-b" accept=".txt">
+                        <input type="file" class="file-input-hidden" id="file-input-b" accept=".txt,.json">
                     </div>
                     <textarea
                         class="text-editor"
                         id="editor-b"
-                        placeholder="ગુજરાતી ટેક્સ્ટ અહીં પેસ્ટ કરો અથવા ફાઈલ અપલોડ કરો..."
+                        placeholder="Paste text here or upload file..."
                         spellcheck="false"
                     ></textarea>
                 </div>
@@ -177,14 +218,14 @@
                 <div class="panel-body">
                     <div class="drop-zone" id="drop-zone-c">
                         <p class="drop-zone-text">
-                            <strong>Click</strong> or <strong>drag & drop</strong> a .txt file
+                            <strong>Click</strong> or <strong>drag & drop</strong> a .txt or .json file
                         </p>
-                        <input type="file" class="file-input-hidden" id="file-input-c" accept=".txt">
+                        <input type="file" class="file-input-hidden" id="file-input-c" accept=".txt,.json">
                     </div>
                     <textarea
                         class="text-editor"
                         id="editor-c"
-                        placeholder="ગુજરાતી ટેક્સ્ટ અહીં પેસ્ટ કરો અથવા ફાઈલ અપલોડ કરો..."
+                        placeholder="Paste text here or upload file..."
                         spellcheck="false"
                     ></textarea>
                 </div>
@@ -220,7 +261,7 @@
                 </div>
                 <div class="legend-item">
                     <span class="legend-color script-mismatch"></span>
-                    <span>Script Mismatch (EN↔GJ)</span>
+                    <span>Script Mismatch (EN↔Indian)</span>
                 </div>
             </div>
 

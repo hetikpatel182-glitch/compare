@@ -34,12 +34,14 @@ from utils.similarity import SimilarityCalculator
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB max upload
-app.config['UPLOAD_FOLDER'] = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), 'uploads'
-)
+# Serverless environments (like Vercel) only allow writing to /tmp
+app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
 
 # Ensure upload directory exists
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+try:
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+except Exception:
+    pass
 
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {'txt', 'json'}
